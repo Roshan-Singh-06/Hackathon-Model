@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { signinService, sendOtpService, loginWithOtpService } from '../services/authService';
 
 const LoginModal = ({ isOpen, onClose, onSwitchToSignUp }) => {
   const [loginMethod, setLoginMethod] = useState('password');
@@ -41,7 +42,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToSignUp }) => {
     return () => clearTimeout(otpTimerRef.current);
   }, [otpTimer, showOtpSection]);
 
-  const handleLoginWithPassword = () => {
+  const handleLoginWithPassword = async () => {
     if (!usernameOrEmail || !password) {
       setMessage('Please enter username/email and password.');
       setMessageType('error');
@@ -49,19 +50,22 @@ const LoginModal = ({ isOpen, onClose, onSwitchToSignUp }) => {
     }
     setMessage('Logging in with password...');
     setMessageType('success');
-    setTimeout(() => {
-      if (usernameOrEmail === 'user' && password === 'password') {
-        setMessage('Login successful! Redirecting...');
-        setMessageType('success');
+    try {
+      await signinService({ usernameOrEmail, password });
+      localStorage.setItem('isLoggedIn', 'true');
+      window.dispatchEvent(new Event('storage'));
+      setMessage('Login successful! Redirecting...');
+      setMessageType('success');
+      setTimeout(() => {
         onClose();
-      } else {
-        setMessage('Invalid username/email or password.');
-        setMessageType('error');
-      }
-    }, 1500);
+      }, 1000);
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Login failed.');
+      setMessageType('error');
+    }
   };
 
-  const handleSendOtpLogin = () => {
+  const handleSendOtpLogin = async () => {
     if (!email) {
       setMessage('Please enter your email.');
       setMessageType('error');
@@ -69,40 +73,66 @@ const LoginModal = ({ isOpen, onClose, onSwitchToSignUp }) => {
     }
     setMessage('Sending OTP to your email...');
     setMessageType('success');
-    setTimeout(() => {
+    try {
+      await sendOtpService({ email, purpose: 'login' });
       setShowOtpSection(true);
       setOtpTimer(60);
       setCanResendOtp(false);
       setMessage('OTP sent to your email. Please check your inbox.');
       setMessageType('success');
-    }, 1000);
+    } catch (err) {
+      const backendMsg = err.response?.data?.message || 'Failed to send OTP.';
+      console.error('OTP Login Error:', backendMsg, err);
+      // If backend says not registered or not verified, offer to sign up
+      if (
+        backendMsg.includes('not registered') ||
+        backendMsg.includes('not verified')
+      ) {
+        setMessage(
+          backendMsg + ' If you are a new user, please sign up first.'
+        );
+        setMessageType('error');
+      } else {
+        setMessage(backendMsg);
+        setMessageType('error');
+      }
+    }
   };
 
-  const handleResendOtpLogin = () => {
+  const handleResendOtpLogin = async () => {
     setMessage('Resending OTP...');
     setMessageType('success');
     setOtpTimer(60);
     setCanResendOtp(false);
-    setTimeout(() => {
+    try {
+      await sendOtpService({ email, purpose: 'login' });
       setMessage('OTP resent. Please check your inbox.');
       setMessageType('success');
-    }, 1000);
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Failed to resend OTP.');
+      setMessageType('error');
+    }
   };
 
-  const handleOtpSubmitLogin = () => {
+  const handleOtpSubmitLogin = async () => {
     if (otp.length !== 6) {
       setMessage('Please enter a 6-digit OTP.');
       setMessageType('error');
       return;
     }
-    if (otp === '123456') {
+    try {
+      await loginWithOtpService({ email, otp });
+      localStorage.setItem('isLoggedIn', 'true');
+      window.dispatchEvent(new Event('storage'));
       setMessage('Login successful via OTP! Redirecting...');
       setMessageType('success');
       clearTimeout(otpTimerRef.current);
       setOtpTimer(0);
-      onClose();
-    } else {
-      setMessage('Invalid OTP. Please try again.');
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Invalid OTP. Please try again.');
       setMessageType('error');
     }
   };

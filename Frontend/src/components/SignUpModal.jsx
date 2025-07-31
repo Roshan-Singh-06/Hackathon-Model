@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { sendOtpService, verifyOtpService, signupService } from '../services/authService';
 
 const SignUpModal = ({ isOpen, onClose, onSwitchToLogin }) => {
   const [fullName, setFullName] = useState('');
@@ -66,7 +67,7 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin }) => {
     return true;
   };
 
-  const handleVerifyEmail = () => {
+  const handleVerifyEmail = async () => {
     if (!email) {
       setMessage('Please enter your email to verify.');
       setMessageType('error');
@@ -74,63 +75,59 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin }) => {
     }
     setMessage('Sending OTP to your email...');
     setMessageType('success');
-    setTimeout(() => {
+    try {
+      await sendOtpService({ email });
       setShowOtpSection(true);
       setOtpTimer(60);
       setCanResendOtp(false);
       setMessage('OTP sent to your email. Please check your inbox.');
       setMessageType('success');
-    }, 1000);
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Failed to send OTP.');
+      setMessageType('error');
+    }
   };
 
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     setMessage('Resending OTP...');
     setMessageType('success');
     setOtpTimer(60);
     setCanResendOtp(false);
-    setTimeout(() => {
+    try {
+      await sendOtpService({ email });
       setMessage('OTP resent. Please check your inbox.');
       setMessageType('success');
-    }, 1000);
-  };
-
-  const handleOtpSubmit = () => {
-    if (otp.length !== 6) {
-      setMessage('Please enter a 6-digit OTP.');
-      setMessageType('error');
-      return;
-    }
-    if (otp === '123456') {
-      setIsEmailVerified(true);
-      setMessage('Email verified successfully!');
-      setMessageType('success');
-      clearTimeout(otpTimerRef.current);
-      setOtpTimer(0);
-      setShowOtpSection(false);
-    } else {
-      setMessage('Invalid OTP. Please try again.');
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Failed to resend OTP.');
       setMessageType('error');
     }
   };
 
-  const handleSignUp = () => {
+
+  // Signup is now completed after OTP verification
+  const handleSignUp = async () => {
     if (!validateForm()) {
       return;
     }
-    if (!isEmailVerified) {
-      setMessage('Please verify your email first.');
+    if (!showOtpSection && !isEmailVerified) {
+      setMessage('Please verify your email with OTP first.');
       setMessageType('error');
       return;
     }
-
-    setMessage('Signing up...');
-    setMessageType('success');
-    setTimeout(() => {
-      setMessage('Sign up successful! Redirecting to login...');
+    try {
+      await signupService({ email, fullName, username, password });
+      setIsEmailVerified(true);
+      setMessage('Signup successful! You can now log in.');
       setMessageType('success');
-      onClose();
-      onSwitchToLogin();
-    }, 2000);
+      setTimeout(() => {
+        onClose();
+        onSwitchToLogin();
+      }, 2000);
+    } catch (err) {
+      console.error('Signup error:', err.response?.data || err);
+      setMessage(err.response?.data?.message || 'Signup failed.');
+      setMessageType('error');
+    }
   };
 
   if (!isOpen) return null;
@@ -242,8 +239,31 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin }) => {
               </div>
               <button
                 type="button"
-                onClick={handleOtpSubmit}
-                className="mt-3 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-indigo-700 dark:hover:bg-indigo-600"
+                onClick={async () => {
+                  if (otp.length !== 6) {
+                    setMessage('Please enter a 6-digit OTP.');
+                    setMessageType('error');
+                    return;
+                  }
+                  try {
+                    await verifyOtpService({ email, otp });
+                    setIsEmailVerified(true);
+                    setShowOtpSection(false);
+                    setMessage('Email verified successfully! You can now complete signup.');
+                    setMessageType('success');
+                    clearTimeout(otpTimerRef.current);
+                    setOtpTimer(0);
+                  } catch (err) {
+                    setMessage(err.response?.data?.message || 'Invalid OTP. Please try again.');
+                    setMessageType('error');
+                  }
+                }}
+                disabled={otp.length !== 6 || isEmailVerified}
+                className={`mt-4 w-full py-2 px-4 rounded-md text-white font-medium transition-colors duration-200 ${
+                  (otp.length !== 6 || isEmailVerified)
+                    ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
+                }`}
               >
                 Verify OTP
               </button>

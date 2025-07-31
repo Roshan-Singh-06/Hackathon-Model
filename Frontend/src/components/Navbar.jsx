@@ -1,9 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import GoogleTranslate from '../services/GoogleTranslate';
 import { useTheme } from '../context/ThemeContext';
 // --- Navbar Component ---
+
 const Navbar = ({ onNavigate, onOpenSignUpModal, onOpenLoginModal }) => {
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check login state on mount and on storage change
+  useEffect(() => {
+    const checkAuth = () => {
+      // You can replace this with a more robust check (e.g., check cookie or JWT)
+      setIsLoggedIn(!!localStorage.getItem('isLoggedIn'));
+    };
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
+  }, []);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -12,6 +26,14 @@ const Navbar = ({ onNavigate, onOpenSignUpModal, onOpenLoginModal }) => {
   const handleNavLinkClick = (page) => {
     onNavigate(page);
     setIsMobileMenuOpen(false);
+  };
+
+  const handleLogout = () => {
+    // Remove login state (replace with real logout logic as needed)
+    localStorage.removeItem('isLoggedIn');
+    setIsLoggedIn(false);
+    // Optionally, call backend logout API here
+    if (onNavigate) onNavigate('home');
   };
 
   // Inline SVG Icons
@@ -50,12 +72,24 @@ const Navbar = ({ onNavigate, onOpenSignUpModal, onOpenLoginModal }) => {
           <button onClick={() => handleNavLinkClick('about')} className="flex items-center text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 font-medium">
             <InfoIcon /> About Us
           </button>
-          <button onClick={onOpenSignUpModal} className="flex items-center text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 font-medium">
-            <UserPlusIcon /> Sign Up
-          </button>
-          <button onClick={onOpenLoginModal} className="flex items-center text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 font-medium">
-            <LogInIcon /> Login
-          </button>
+          {!isLoggedIn && (
+            <button onClick={onOpenSignUpModal} className="flex items-center text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 font-medium">
+              <UserPlusIcon /> Sign Up
+            </button>
+          )}
+          {isLoggedIn ? (
+            <button onClick={handleLogout} className="flex items-center text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200 font-medium">
+              <LogInIcon /> Logout
+            </button>
+          ) : (
+            <button onClick={onOpenLoginModal} className="flex items-center text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 font-medium">
+              <LogInIcon /> Login
+            </button>
+          )}
+          <div className="ml-2 flex items-center">
+            <GoogleTranslate />
+          </div>
+
         </div>
 
         <div className="flex items-center space-x-4">
@@ -87,6 +121,10 @@ const Navbar = ({ onNavigate, onOpenSignUpModal, onOpenLoginModal }) => {
               )}
             </svg>
           </button>
+        {/* Mobile Google Translate */}
+        <div className="px-4 mt-2">
+          <GoogleTranslate />
+        </div>
         </div>
       </div>
 
@@ -98,12 +136,20 @@ const Navbar = ({ onNavigate, onOpenSignUpModal, onOpenLoginModal }) => {
           <button onClick={() => handleNavLinkClick('about')} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center">
             <InfoIcon /> About Us
           </button>
-          <button onClick={() => { onOpenSignUpModal(); setIsMobileMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center">
-            <UserPlusIcon /> Sign Up
-          </button>
-          <button onClick={() => { onOpenLoginModal(); setIsMobileMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center">
-            <LogInIcon /> Login
-          </button>
+          {!isLoggedIn && (
+            <button onClick={() => { onOpenSignUpModal(); setIsMobileMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center">
+              <UserPlusIcon /> Sign Up
+            </button>
+          )}
+          {isLoggedIn ? (
+            <button onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-red-100 dark:hover:bg-red-700 transition-colors duration-200 flex items-center">
+              <LogInIcon /> Logout
+            </button>
+          ) : (
+            <button onClick={() => { onOpenLoginModal(); setIsMobileMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center">
+              <LogInIcon /> Login
+            </button>
+          )}
         </div>
       )}
     </nav>
